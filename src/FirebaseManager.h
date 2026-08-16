@@ -2,7 +2,7 @@
 #define FIREBASE_MANAGER_H
 
 #include <Arduino.h>
-#include <FirebaseClient.h>
+#include <FirebaseESP32.h>
 #include <WiFi.h>
 
 class FirebaseManager {

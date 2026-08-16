@@ -10,7 +10,7 @@
 #include <esp_task_wdt.h>
 
 // Network & Remote
-#include "NetworkManager.h"
+#include "WifiConnectionManager.h"
 #include "FirebaseManager.h"
 
 extern bool defautSecurite;
@@ -43,7 +43,7 @@ void setup() {
     currentTheme = 0;
 
   // Initialisation du reseau et Firebase (Portail captif si pas de WiFi)
-  NetworkManager::getInstance().begin();
+  WifiConnectionManager::getInstance().begin();
   FirebaseManager::getInstance().begin();
 
   initDisplays();
