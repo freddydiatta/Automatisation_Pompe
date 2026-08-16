@@ -1,6 +1,6 @@
-#include "NetworkManager.h"
+#include "WifiConnectionManager.h"
 
-void NetworkManager::begin() {
+void WifiConnectionManager::begin() {
     // Set custom IP for portal if needed, otherwise it defaults to 192.168.4.1
     // wifiManager.setAPStaticIPConfig(IPAddress(10,0,1,1), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
 
@@ -21,11 +21,11 @@ void NetworkManager::begin() {
     Serial.println(WiFi.localIP());
 }
 
-bool NetworkManager::isConnected() {
+bool WifiConnectionManager::isConnected() {
     return WiFi.status() == WL_CONNECTED;
 }
 
-void NetworkManager::update() {
+void WifiConnectionManager::update() {
     // If connection is lost, WiFiManager handles auto-reconnect internally,
     // but we can add specific logic here if needed.
 }

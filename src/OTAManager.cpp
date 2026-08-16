@@ -1,5 +1,6 @@
 #include "OTAManager.h"
 #include "config.h"
+#include <WiFi.h>
 #include <HTTPClient.h>
 #include <Update.h>
 

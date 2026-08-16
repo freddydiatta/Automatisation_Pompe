@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <FirebaseClient.h>
+#include <WiFi.h>
 
 class FirebaseManager {
 public:
