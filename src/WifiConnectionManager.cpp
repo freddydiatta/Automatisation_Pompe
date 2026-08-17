@@ -8,6 +8,15 @@ void WifiConnectionManager::begin() {
     wifiManager.setDebugOutput(false);
 
     Serial.println("Initialisation du WiFiManager...");
+    
+    // Auto-connexion rapide spécifique au simulateur Wokwi
+    WiFi.begin("Wokwi-GUEST", "", 6);
+    int retries = 0;
+    while (WiFi.status() != WL_CONNECTED && retries < 15) {
+        delay(100);
+        retries++;
+    }
+
     // AutoConnect tries to connect to the saved Wi-Fi, if it fails, it opens an AP
     // AP name will be "POMPE_CONFIG"
     if (!wifiManager.autoConnect("POMPE_CONFIG", "AdminPompe123")) {

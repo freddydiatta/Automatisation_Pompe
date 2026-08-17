@@ -1,6 +1,38 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "pompe": {
+      // Seuls les utilisateurs connectés (l'ESP32 et vous via l'application) peuvent lire ou écrire
+      ".read": "auth != null",
+      ".write": "auth != null",
+      
+      // Validation stricte des données pour éviter les erreurs ou piratages
+      "etat": { 
+        ".validate": "newData.isBoolean()" 
+      },
+      "mode": { 
+        ".validate": "newData.val() == 'AUTO' || newData.val() == 'MANU' || newData.val() == 'MAINT'" 
+      },
+      "courant": { 
+        ".validate": "newData.isNumber()" 
+      },
+      "tension": { 
+        ".validate": "newData.isNumber()" 
+      },
+      "frequence": { 
+        ".validate": "newData.isNumber()" 
+      },
+      "puissance": { 
+        ".validate": "newData.isNumber()" 
+      },
+      "energie": { 
+        ".validate": "newData.isNumber()" 
+      },
+      "defaut_tension": { 
+        ".validate": "newData.isBoolean()" 
+      },
+      "last_update": {
+        ".validate": "newData.isNumber() || newData.isString()"
+      }
+    }
   }
 }

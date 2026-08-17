@@ -29,6 +29,10 @@ void FirebaseManager::begin() {
 }
 
 void FirebaseManager::update() {
+    static unsigned long lastFirebaseUpdate = 0;
+    if (millis() - lastFirebaseUpdate < 1000) return; // 1 update per second maximum
+    lastFirebaseUpdate = millis();
+
     // Check for incoming OTA command
     if (Firebase.ready()) {
         if (Firebase.getString(fbdo, "/pump/ota_url")) {
