@@ -10,7 +10,7 @@ void WifiConnectionManager::begin() {
     Serial.println("Initialisation du WiFiManager...");
     // AutoConnect tries to connect to the saved Wi-Fi, if it fails, it opens an AP
     // AP name will be "POMPE_CONFIG"
-    if (!wifiManager.autoConnect("POMPE_CONFIG")) {
+    if (!wifiManager.autoConnect("POMPE_CONFIG", "AdminPompe123")) {
         Serial.println("Erreur de connexion. Redemarrage de l'ESP32.");
         delay(3000);
         ESP.restart();

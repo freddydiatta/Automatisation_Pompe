@@ -1,14 +1,15 @@
 #include "DisplayManager.h"
-#include "config.h"
-#include "PumpControl.h"
 #include "ButtonHandler.h"
+#include "PumpControl.h"
+#include "config.h"
 #include <Preferences.h>
 
 extern Preferences preferences;
 extern bool defautSecurite;
 extern RTC_DS3231 rtc;
 
-Adafruit_SSD1306 display1(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1); // Temporary Wire init, will use custom I2C buses
+Adafruit_SSD1306 display1(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire,
+                          -1); // Temporary Wire init, will use custom I2C buses
 Adafruit_SSD1306 display2(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 TwoWire I2C_BUS_1 = TwoWire(0);
@@ -23,8 +24,7 @@ bool blinkState = false;
 
 int menuPage = 0;
 int menuSelection = 0;
-const char *mainMenuOptions[] = {"PARAMETRES", "REGL. HEURE", "REDEMARRER",
-                                 "INFOS SYS.", "APPARENCE",   "INFO NETTOYAGE"};
+const char *mainMenuOptions[] = {"REDEMARRER", "INFOS SYS.", "APPARENCE"};
 
 int currentTheme = 0;
 int themeSelectionState = 0;
@@ -42,17 +42,23 @@ const unsigned char PROGMEM surfer_bmp[] = {0b00011000, 0b00111100, 0b00011000,
 
 float creditsY = SCREEN_HEIGHT;
 unsigned long lastCreditsUpdate = 0;
-const char *creditsLines[] = {"--- INFOS SYSTEME ---", "", "Projet:", "Gestion Citerne V14.2", "", "Securite:", "Mots de passe rotatifs", "", "DEV:", "Freddy Diatta", "", "--- FIN ---", "", "", ""};
+const char *creditsLines[] = {"--- INFOS SYSTEME ---",
+                              "",
+                              "Projet:",
+                              "Gestion Citerne V14.2",
+                              "",
+                              "Securite:",
+                              "Standard",
+                              "",
+                              "DEV:",
+                              "Freddy Diatta",
+                              "",
+                              "--- FIN ---",
+                              "",
+                              "",
+                              ""};
 const int creditsCount = sizeof(creditsLines) / sizeof(creditsLines[0]);
 const int creditLineHeight = 11;
-
-int tempParamHeure = 0;
-int tempParamMinute = 0;
-int tempParamDuree = 30;
-int parametrageState = 0;
-int tempHeures = 0;
-int tempMinutes = 0;
-int reglageHeureState = 0;
 
 void drawHeader(const char *title) {
   display2.setTextSize(1);
@@ -69,9 +75,10 @@ void initDisplays() {
   I2C_BUS_1.begin(21, 22, 400000);
   I2C_BUS_2.begin(33, 32, 400000);
 
-  // Correcting the initialisation objects since we created them with &Wire previously
-  // Wait, the original code had them instantiated with &I2C_BUS_1 and &I2C_BUS_2 globally
-  // We can just reconstruct them here safely, or use them directly.
+  // Correcting the initialisation objects since we created them with &Wire
+  // previously Wait, the original code had them instantiated with &I2C_BUS_1
+  // and &I2C_BUS_2 globally We can just reconstruct them here safely, or use
+  // them directly.
   display1 = Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C_BUS_1, -1);
   display2 = Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C_BUS_2, -1);
 
@@ -79,7 +86,7 @@ void initDisplays() {
     Serial.println(F("Echec Ecran 1"));
   else
     display1.display();
-  
+
   if (!display2.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
     Serial.println(F("Echec Ecran 2"));
   else
@@ -125,11 +132,6 @@ void gererBandeLed() {
       couleur = strip.Color(255, 0, 0);
     else
       couleur = strip.Color(0, 0, 0);
-  } else if (maintenanceRequise) {
-    if (blinkState)
-      couleur = strip.Color(255, 69, 0);
-    else
-      couleur = strip.Color(50, 0, 0);
   } else if (incoherenceCapteurs) {
     couleur = strip.Color(255, 0, 0);
   } else if (etatCapteurHaut == LOW) {
@@ -185,15 +187,10 @@ void afficherEtatPrimaire(DateTime now) {
     return;
   }
 
-  if (maintenanceRequise) {
-    if (blinkState) {
-      display1.setTextSize(2);
-      display1.setCursor((SCREEN_WIDTH - (11 * 12)) / 2, 5);
-      display1.print("!!CRITIQUE!!");
-      display1.setTextSize(1);
-      display1.setCursor((SCREEN_WIDTH - (18 * 6)) / 2, 25);
-      display1.print("ENTREZ MOT DE PASSE");
-    }
+  if (Mode == 2) {
+    display1.setTextSize(2);
+    display1.setCursor((SCREEN_WIDTH - (9 * 12)) / 2, 10);
+    display1.print("ENTRETIEN");
     display1.display();
     return;
   }
@@ -264,95 +261,6 @@ void drawAnimationSurfer(DateTime now) {
   }
 }
 
-// ... Additional Menu rendering functions like drawPageAccueil, drawPageParametrage, etc.
-void drawPageParametrage() {
-  display2.clearDisplay();
-  drawHeader("PARAMETRES");
-
-  int finalValue = getSmoothedPotValue();
-
-  switch (parametrageState) {
-  case 0:
-    tempParamHeure = map(constrain(finalValue, 100, 4000), 100, 4000, 0, 23);
-    break;
-  case 1:
-    tempParamMinute = map(constrain(finalValue, 100, 4000), 100, 4000, 0, 59);
-    break;
-  case 2:
-    tempParamDuree = map(constrain(finalValue, 100, 4000), 100, 4000, 0, 120);
-    break;
-  }
-
-  if (parametrageState == 0)
-    display2.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-  else
-    display2.setTextColor(SSD1306_WHITE);
-  display2.setCursor(0, 12);
-  display2.print("Dep:");
-  display2.setCursor(30, 12);
-  if (tempParamHeure < 10) display2.print("0");
-  display2.print(tempParamHeure);
-  display2.print("H");
-
-  if (parametrageState == 1)
-    display2.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-  else
-    display2.setTextColor(SSD1306_WHITE);
-  display2.setCursor(60, 12);
-  display2.print("Min:");
-  display2.setCursor(90, 12);
-  if (tempParamMinute < 10) display2.print("0");
-  display2.print(tempParamMinute);
-
-  if (parametrageState == 2)
-    display2.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-  else
-    display2.setTextColor(SSD1306_WHITE);
-  display2.setCursor(0, 22);
-  display2.print("Duree:");
-  display2.setCursor(40, 22);
-  display2.print(tempParamDuree);
-  display2.print(" min");
-
-  if (blinkState) {
-    display2.setTextColor(SSD1306_WHITE);
-    display2.setCursor(120, parametrageState == 2 ? 22 : 12);
-    display2.print("<");
-  }
-}
-
-void drawPageReglageHeure() {
-  display2.clearDisplay();
-  drawHeader("REGLAGE HEURE");
-
-  int finalValue = getSmoothedPotValue();
-
-  if (reglageHeureState == 0)
-    tempHeures = map(constrain(finalValue, 100, 4000), 100, 4000, 0, 23);
-  else
-    tempMinutes = map(constrain(finalValue, 100, 4000), 100, 4000, 0, 59);
-
-  display2.setTextSize(2);
-  display2.setCursor((SCREEN_WIDTH - (5 * 12)) / 2, 14);
-
-  if (reglageHeureState == 0)
-    display2.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-  else
-    display2.setTextColor(SSD1306_WHITE);
-  if (tempHeures < 10) display2.print("0");
-  display2.print(tempHeures);
-
-  display2.setTextColor(SSD1306_WHITE);
-  display2.print(":");
-
-  if (reglageHeureState == 1)
-    display2.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-  else
-    display2.setTextColor(SSD1306_WHITE);
-  if (tempMinutes < 10) display2.print("0");
-  display2.print(tempMinutes);
-}
-
 void drawPageRedemarrer() {
   display2.clearDisplay();
   drawHeader("REDEMARRAGE");
@@ -397,39 +305,6 @@ void drawPageThemeSelection() {
   display2.print(themeName);
 }
 
-void drawPageInfoMaintenance(DateTime now) {
-  display2.clearDisplay();
-  drawHeader("INFO NETTOYAGE");
-  display2.setTextSize(1);
-  display2.setTextColor(SSD1306_WHITE);
-
-  if (maintenanceRequise) {
-    if (blinkState) {
-      display2.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-      display2.setCursor(0, 14);
-      display2.print("!BLOQUE! Code requis");
-      display2.setTextColor(SSD1306_WHITE);
-    }
-    display2.setCursor(0, 24);
-    display2.print("App ou Combo 5s");
-  } else {
-    unsigned long tempsEcoule = now.unixtime() - dernierNettoyageUnix;
-    long secondesRestantes = MAINTENANCE_INTERVAL_SEC - tempsEcoule;
-    if (secondesRestantes < 0) secondesRestantes = 0;
-
-    display2.setTextSize(2);
-    display2.setCursor(0, 14);
-    display2.print("OK");
-    display2.setTextSize(1);
-    display2.setCursor(40, 14);
-    display2.print("Reste:");
-    display2.setCursor(40, 24);
-    long joursRestants = secondesRestantes / 86400;
-    display2.print(joursRestants);
-    display2.print("j");
-  }
-}
-
 void drawIconGeneric(int x, int y, int type, bool selected) {
   int r = selected ? 10 : 6;
   if (selected)
@@ -438,27 +313,17 @@ void drawIconGeneric(int x, int y, int type, bool selected) {
     display2.drawCircle(x, y, r, SSD1306_WHITE);
   uint16_t color = selected ? SSD1306_BLACK : SSD1306_WHITE;
   switch (type) {
-  case 0:
-    display2.drawCircle(x, y, r - 2, color);
-    display2.drawLine(x - (r - 1), y, x + (r - 1), y, color);
-    display2.drawLine(x, y - (r - 1), x, y + (r - 1), color);
-    break;
-  case 1:
-    display2.drawCircle(x, y, r - 1, color);
-    display2.drawLine(x, y, x, y - (r - 3), color);
-    display2.drawLine(x, y, x + (r - 3), y, color);
-    break;
-  case 2:
+  case 0: // REDEMARRER (Reset icon)
     display2.drawCircle(x, y, r - 2, color);
     display2.drawLine(x, y - (r), x + 2, y - (r - 2), color);
     break;
-  case 3:
+  case 1: // INFOS (Info icon)
     display2.setCursor(x - 1, y - 3);
     display2.setTextSize(1);
     display2.setTextColor(color);
     display2.print("i");
     break;
-  case 4:
+  case 2: // APPARENCE (Palette icon)
     display2.fillRect(x - 2, y - 2, 4, 4, color);
     display2.drawLine(x, y, x + 3, y + 3, color);
     break;
@@ -491,7 +356,8 @@ void drawHomeMatrix() {
       matrixDrops[i] += random(1, 4);
       if (matrixDrops[i] > 32)
         matrixDrops[i] = random(-20, 0);
-      display2.drawChar(i * 6 + 2, matrixDrops[i], (char)random(33, 126), SSD1306_WHITE, SSD1306_BLACK, 1);
+      display2.drawChar(i * 6 + 2, matrixDrops[i], (char)random(33, 126),
+                        SSD1306_WHITE, SSD1306_BLACK, 1);
     }
     lastAnimTime = millis();
   }
@@ -518,7 +384,8 @@ void drawHomeWave() {
     lastAnimTime = millis();
   }
   for (int x = 0; x < 128; x++) {
-    int y = 24 + 4 * sin(x * 0.1 + wavePhase) + 2 * sin(x * 0.2 + wavePhase * 1.5);
+    int y =
+        24 + 4 * sin(x * 0.1 + wavePhase) + 2 * sin(x * 0.2 + wavePhase * 1.5);
     display2.drawFastVLine(x, y, 32 - y, SSD1306_WHITE);
   }
   int spacing = 128 / MAIN_MENU_ITEMS;
@@ -547,7 +414,8 @@ void drawHomeMinimal() {
   display2.setTextColor(SSD1306_WHITE);
   int16_t x1, y1;
   uint16_t w, h;
-  display2.getTextBounds(mainMenuOptions[menuSelection], 0, 0, &x1, &y1, &w, &h);
+  display2.getTextBounds(mainMenuOptions[menuSelection], 0, 0, &x1, &y1, &w,
+                         &h);
   display2.setCursor((SCREEN_WIDTH - w) / 2, 6);
   display2.print(mainMenuOptions[menuSelection]);
   int barY = 28;
@@ -568,24 +436,42 @@ void drawHomeMinimal() {
 
 void drawPageAccueil() {
   switch (currentTheme) {
-  case 0: drawHomeCarousel(); break;
-  case 1: drawHomeMatrix(); break;
-  case 2: drawHomeWave(); break;
-  case 3: drawHomeMinimal(); break;
-  default: drawHomeCarousel(); break;
+  case 0:
+    drawHomeCarousel();
+    break;
+  case 1:
+    drawHomeMatrix();
+    break;
+  case 2:
+    drawHomeWave();
+    break;
+  case 3:
+    drawHomeMinimal();
+    break;
+  default:
+    drawHomeCarousel();
+    break;
   }
 }
 
 void drawMenu(DateTime now) {
   switch (menuPage) {
-  case 0: drawPageAccueil(); break;
-  case 1: drawPageParametrage(); break;
-  case 2: drawPageReglageHeure(); break;
-  case 3: drawPageRedemarrer(); break;
-  case 4: drawPageInfosSystem(); break;
-  case 5: drawPageThemeSelection(); break;
-  case 6: drawPageInfoMaintenance(now); break;
-  default: drawPageAccueil(); break;
+  case 0:
+    drawPageAccueil();
+    break;
+  case 1:
+    drawPageRedemarrer();
+    break; // index 0 in menuSelection is REDEMARRER
+  case 2:
+    drawPageInfosSystem();
+    break; // index 1 in menuSelection is INFOS SYS.
+  case 3:
+    drawPageThemeSelection();
+    break; // index 2 in menuSelection is APPARENCE
+
+  default:
+    drawPageAccueil();
+    break;
   }
   display2.display();
 }
@@ -595,7 +481,8 @@ void updateDisplays(DateTime now) {
     lastScreenUpdateTime = millis();
     afficherEtatPrimaire(now);
     if (!arretUrgenceActif) {
-      if (Mode == 2) drawMenu(now);
+      if (Mode == 2)
+        drawMenu(now);
       else {
         menuPage = 0;
         menuSelection = 0;
@@ -613,48 +500,26 @@ void gererMenuSecondaire(DateTime now) {
   if (bpMarche.fell()) {
     if (menuPage == 0)
       menuSelection = (menuSelection + 1) % MAIN_MENU_ITEMS;
-    else if (menuPage == 1)
-      parametrageState = (parametrageState + 1) % 3;
-    else if (menuPage == 2)
-      reglageHeureState = (reglageHeureState + 1) % 2;
     else if (menuPage == 3)
-      redemarrerESP32();
-    else if (menuPage == 5)
       themeSelectionState = (themeSelectionState + 1) % 4;
   }
 
   if (bpArret.fell()) {
     if (menuPage == 0) {
-      if (menuSelection == 5) menuPage = 6;
-      else if (menuSelection == 4) {
-        menuPage = 5;
+      if (menuSelection == 2) { // APPARENCE
+        menuPage = 3;
         themeSelectionState = currentTheme;
-      } else if (menuSelection == 3) {
-        menuPage = 4;
-        creditsY = SCREEN_HEIGHT;
-      } else if (menuSelection == 2) menuPage = 3;
-      else if (menuSelection == 1) {
+      } else if (menuSelection == 1) { // INFOS SYS.
         menuPage = 2;
-        tempHeures = now.hour();
-        tempMinutes = now.minute();
-        reglageHeureState = 0;
-      } else if (menuSelection == 0) {
+        creditsY = SCREEN_HEIGHT;
+      } else if (menuSelection == 0) { // REDEMARRER
         menuPage = 1;
-        tempParamHeure = declenchementHeure;
-        tempParamMinute = declenchementMinute;
-        tempParamDuree = declenchementDuree;
-        parametrageState = 0;
       }
     } else {
-      if (menuPage == 1) {
-        declenchementHeure = tempParamHeure;
-        declenchementMinute = tempParamMinute;
-        declenchementDuree = tempParamDuree;
-        preferences.putInt("duree", declenchementDuree);
+      if (menuPage == 1) { // Confirmer Redémarrer
+        redemarrerESP32();
       }
-      if (menuPage == 2)
-        rtc.adjust(DateTime(now.year(), now.month(), now.day(), tempHeures, tempMinutes, 0));
-      if (menuPage == 5) {
+      if (menuPage == 3) { // Valider Theme
         currentTheme = themeSelectionState;
         preferences.putInt("theme", currentTheme);
       }

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pompe & Citerne</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- AUTHENTICATION SCREEN -->
+    <div id="auth-container">
+        <div class="auth-box">
+            <h1>Accès Sécurisé</h1>
+            <p>Veuillez vous authentifier pour accéder au panneau de contrôle de la pompe.</p>
+            
+            <div id="login-form">
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required placeholder="admin@pompe.com">
+                </div>
+                <div class="input-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <div id="auth-error" class="error-text" style="display: none;">Identifiants incorrects.</div>
+                <button type="button" id="login-btn" class="btn btn-primary">SE CONNECTER</button>
+            </div>
+            <div id="global-error" class="error-text"></div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard-container" style="display: none;">
+        <!-- Header -->
+        <header>
+            <div class="header-titles">
+                <div class="title">Pompe & citerne</div>
+                <div class="subtitle">
+                    <span>Alès</span>
+                    <span class="line-dot">
+                        <span class="dot-travel"></span>
+                    </span>
+                    <span>Saly</span>
+                </div>
+            </div>
+            
+            <div class="header-controls">
+                <div class="conn-badge" id="conn-status">
+                    <span class="dot" id="conn-dot"></span>
+                    <span id="conn-text">En ligne</span>
+                </div>
+                <nav class="tabs">
+                    <button class="active" id="tab-dashboard">Tableau de bord</button>
+                    <button id="tab-journal">Journal</button>
+                    <button id="logout-btn" class="tab-outline">Déconnexion</button>
+                </nav>
+            </div>
+        </header>
+
+
+
+        <!-- Alert Banner (Hidden by default) -->
+        <div id="fault-banner" class="alert-banner" style="display: none;">
+            <div class="alert-content">
+                <span class="alert-icon">!</span>
+                <div>
+                    <div class="alert-title">Défaut actif</div>
+                    <div class="alert-desc" id="fault-text">Défaut inconnu</div>
+                </div>
+            </div>
+            <button type="button" class="btn-alert" onclick="document.getElementById('fault-banner').style.display='none'">Acquitter (Visuel)</button>
+        </div>
+
+        <!-- Main Layout -->
+        <main class="dashboard-grid">
+            <!-- Left: Citerne -->
+            <section class="card citerne-card">
+                <div class="card-header">
+                    <h3>Citerne principale</h3>
+                    <span class="last-update" id="last-update">En direct</span>
+                </div>
+                <div class="citerne-content">
+                    <div class="tank-wrapper">
+                        <div class="tank">
+                            <div class="water" id="water-level">
+                                <div class="wave wave1"></div>
+                                <div class="wave wave2"></div>
+                            </div>
+                            <div class="sensor-line" style="bottom: 90%;"></div>
+                            <div class="sensor-line" style="bottom: 15%;"></div>
+                            <div class="float-sensor" id="sensor-high-visual" style="bottom: 90%;"></div>
+                            <div class="float-sensor" id="sensor-low-visual" style="bottom: 15%;"></div>
+                            <div class="nameplate"><span>CUVE · SN</span></div>
+                        </div>
+                    </div>
+                    <div class="citerne-readout">
+                        <div class="level-status" id="level-text">NORMAL</div>
+                        <div class="sensors-list">
+                            <div class="sensor-item">
+                                <span class="sensor-dot" id="dot-high"></span>
+                                <span>Capteur haut — <span id="label-high">sec</span></span>
+                            </div>
+                            <div class="sensor-item">
+                                <span class="sensor-dot" id="dot-low"></span>
+                                <span>Capteur bas — <span id="label-low">immergé</span></span>
+                            </div>
+                        </div>
+                        <p class="hint">2 capteurs flotteur — fonctionnement binaire.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column -->
+            <div class="right-column">
+                
+                <!-- Pompe Status -->
+                <section class="card pompe-card">
+                    <div class="pompe-image-container" id="pump-img-container">
+                        <img src="pump.jpg" alt="Pompe Industrielle" class="pompe-image">
+                        <div class="pump-glow" id="pump-glow"></div>
+                    </div>
+                    <div class="pompe-info">
+                        <h3>Pompe immergée</h3>
+                        <div class="pompe-status" id="state-display">À l'arrêt</div>
+                        <div class="pompe-mode">Mode : <span id="mode-display-text">Manuel</span></div>
+                    </div>
+                </section>
+
+                <!-- Mode Selection -->
+                <section class="card">
+                    <h3>Mode de fonctionnement</h3>
+                    <div class="mode-grid">
+                        <button type="button" class="btn-mode" id="btn-mode-auto">Auto</button>
+                        <button type="button" class="btn-mode active" id="btn-mode-manual">Manuel</button>
+                        <button type="button" class="btn-mode" id="btn-mode-maint">Entretien</button>
+                    </div>
+                    <p class="hint" id="mode-hint">Démarrage et arrêt manuels depuis ce tableau de bord.</p>
+                </section>
+
+                <!-- Commands -->
+                <section class="card">
+                    <h3>Commandes</h3>
+                    <div class="controls-grid">
+                        <button type="button" class="btn btn-start" id="btn-start">Démarrer</button>
+                        <button type="button" class="btn btn-stop" id="btn-stop">Arrêter</button>
+                    </div>
+                    <p class="hint" id="control-hint">Passez en mode Manuel pour commander la pompe directement.</p>
+                </section>
+            </div>
+        </main>
+
+        <!-- Journal Layout (Hidden by default) -->
+        <main id="journal-view" style="display: none;">
+            <div class="filters-container" id="filters-container">
+                <button class="btn-filter active" data-filter="Tous">Tous</button>
+                <button class="btn-filter" data-filter="Système">Système</button>
+                <button class="btn-filter" data-filter="Mode">Mode</button>
+                <button class="btn-filter" data-filter="Pompe">Pompe</button>
+                <button class="btn-filter" data-filter="Sécurité">Sécurité</button>
+                <button class="btn-filter" data-filter="Entretien">Entretien</button>
+                <button class="btn-filter" data-filter="Capteurs">Capteurs</button>
+            </div>
+
+            <section class="card journal-card">
+                <div id="logs-container" class="logs-container">
+                    <div class="empty-log">Chargement des historiques...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Error Catcher -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.getElementById('global-error').innerText = message + " at " + lineno + ":" + colno;
+        };
+    </script>
+    <script type="module" src="app.js?v=4"></script>
+</body>
+</html>

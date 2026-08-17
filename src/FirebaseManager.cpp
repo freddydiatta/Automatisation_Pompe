@@ -1,8 +1,11 @@
 #include "FirebaseManager.h"
-#include "OTAManager.h"
+#include "PumpControl.h"
+#include "config.h"
+#include <RTClib.h>
 
-#define API_KEY "AIzaSyA1XJf_CcvcEL3vL_-HmO9MoeUK6qQi9ss"
-#define DATABASE_URL "https://automatisationpompe-default-rtdb.firebaseio.com/"
+extern RTC_DS3231 rtc;
+#include "OTAManager.h"
+#include "secrets.h"
 
 FirebaseData fbdo;
 FirebaseAuth auth;
@@ -37,6 +40,48 @@ void FirebaseManager::update() {
                 OTAManager::getInstance().beginUpdate(url);
             }
         }
+
+        String relayStr = (digitalRead(relayPin) == RELAY_ON) ? "ON" : "OFF";
+        Firebase.setString(fbdo, "/pump/relay_state", relayStr);
+
+        Firebase.setBool(fbdo, "/pump/level_high", !digitalRead(Capteur_Niveau_Haut));
+        Firebase.setBool(fbdo, "/pump/level_low", !digitalRead(Capteur_Niveau_Bas));
+
+        String modeStr = (Mode == 0) ? "AUTO" : ((Mode == 1) ? "MANUAL" : "MAINTENANCE");
+        Firebase.setString(fbdo, "/pump/mode", modeStr);
+
+        // Traitement de la commande depuis l'interface web
+        if (Firebase.getString(fbdo, "/pump/command_state")) {
+            String cmd = fbdo.stringData();
+            if (cmd == "ON" && Mode == 1) { // Seulement en MANU
+                setRelayState(RELAY_ON);
+                Firebase.setString(fbdo, "/pump/command_state", "IDLE"); 
+            } else if (cmd == "OFF" && Mode == 1) {
+                setRelayState(RELAY_OFF);
+                Firebase.setString(fbdo, "/pump/command_state", "IDLE"); 
+            }
+        }
+
+        // Changement de mode depuis l'interface web
+        if (Firebase.getString(fbdo, "/pump/set_mode")) {
+            String newMode = fbdo.stringData();
+            if (newMode == "AUTO" && Mode != 0) {
+                Mode = 0;
+                Firebase.setString(fbdo, "/pump/set_mode", "IDLE");
+            } else if (newMode == "MANUAL" && Mode != 1) {
+                Mode = 1;
+                Firebase.setString(fbdo, "/pump/set_mode", "IDLE");
+            } else if (newMode == "MAINTENANCE" && Mode != 2) {
+                Mode = 2;
+                Firebase.setString(fbdo, "/pump/set_mode", "IDLE");
+            }
+        }
+        
+        static unsigned long lastSeenTime = 0;
+        if (millis() - lastSeenTime > 5000) {
+            Firebase.setInt(fbdo, "/pump/last_seen", time(nullptr));
+            lastSeenTime = millis();
+        }
     }
 }
 
@@ -55,6 +100,18 @@ void FirebaseManager::setWaterLevels(bool low, bool high) {
 
 void FirebaseManager::setMode(int mode) {
     if (Firebase.ready()) {
-        Firebase.setInt(fbdo, "/pump/mode", mode);
+        String modeStr = (mode == 0) ? "AUTO" : ((mode == 1) ? "MANUAL" : "MAINTENANCE");
+        Firebase.setString(fbdo, "/pump/mode", modeStr);
+    }
+}
+
+void FirebaseManager::addLog(String category, String message, String severity, String timestamp) {
+    if (Firebase.ready()) {
+        FirebaseJson json;
+        json.set("category", category);
+        json.set("message", message);
+        json.set("sev", severity);
+        json.set("ts", timestamp);
+        Firebase.pushJSON(fbdo, "/pump/logs", json);
     }
 }

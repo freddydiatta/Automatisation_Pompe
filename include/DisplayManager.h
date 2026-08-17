@@ -16,18 +16,10 @@ extern bool blinkState;
 
 extern int menuPage;
 extern int menuSelection;
-#define MAIN_MENU_ITEMS 6
+#define MAIN_MENU_ITEMS 3
 
 extern int currentTheme;
 extern int themeSelectionState;
-
-extern int tempParamHeure;
-extern int tempParamMinute;
-extern int tempParamDuree;
-extern int parametrageState;
-extern int tempHeures;
-extern int tempMinutes;
-extern int reglageHeureState;
 
 void initDisplays();
 void initLedStrip();

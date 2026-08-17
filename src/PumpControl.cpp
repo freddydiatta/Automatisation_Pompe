@@ -1,14 +1,22 @@
 #include "PumpControl.h"
 #include "config.h"
 #include "ButtonHandler.h"
+#include "FirebaseManager.h"
 #include <Preferences.h>
+#include <RTClib.h>
 
 extern Preferences preferences;
+extern RTC_DS3231 rtc;
+
+String getTimestampStr() {
+  DateTime now = rtc.now();
+  char buf[20];
+  snprintf(buf, sizeof(buf), "%02d/%02d %02d:%02d", now.day(), now.month(), now.hour(), now.minute());
+  return String(buf);
+}
+
 
 int Mode = 0;
-bool maintenanceRequise = false;
-unsigned long dernierNettoyageUnix = 0;
-extern int passwordIndex;
 
 bool etatCapteurBas = HIGH;
 bool etatCapteurHaut = HIGH;
@@ -33,12 +41,7 @@ bool finitionRemplissageActive = false;
 unsigned long debutFinitionTime = 0;
 const unsigned long DUREE_FINITION = 60000;
 
-int declenchementHeure = 7;
-int declenchementMinute = 0;
-int declenchementDuree = 30;
-bool timerActif = false;
-bool cycleHoraireEnCours = false;
-unsigned long tempsDebutCycle = 0;
+
 
 unsigned long lastMaintenanceCheckTime = 0;
 extern bool physicalResetJustHappened;
@@ -55,11 +58,13 @@ void setRelayState(int state) {
     if (digitalRead(relayPin) != RELAY_ON) {
       digitalWrite(relayPin, RELAY_ON);
       tempsMarchePompe = millis(); // Démarrage du chrono de sécurité
+      FirebaseManager::getInstance().addLog("Pompe", "Démarrage de la pompe", "ok", getTimestampStr());
     }
   } else {
     if (digitalRead(relayPin) != RELAY_OFF) {
       digitalWrite(relayPin, RELAY_OFF);
       lastPumpOffTime = millis();
+      FirebaseManager::getInstance().addLog("Pompe", "Arrêt de la pompe", "info", getTimestampStr());
     }
   }
 }
@@ -111,46 +116,12 @@ void verifierCoherenceCapteurs() {
     incoherenceCapteurs = false;
 }
 
-void verifierMaintenance(DateTime now) {
-  if (millis() - lastMaintenanceCheckTime > 60000) {
-    lastMaintenanceCheckTime = millis();
-    if (!maintenanceRequise && now.year() > 2020 && dernierNettoyageUnix > 0) {
-      unsigned long tempsEcoule = now.unixtime() - dernierNettoyageUnix;
-      if (tempsEcoule >= MAINTENANCE_INTERVAL_SEC) {
-        maintenanceRequise = true;
-        preferences.putBool("maintReq", true);
-        Mode = 2;
-        setRelayState(RELAY_OFF);
-        Serial.println("ALERTE: Maintenance requise !");
-      }
-    }
-  }
-}
 
-void resetMaintenanceCounter(DateTime now, bool forcePhysical) {
-  dernierNettoyageUnix = now.unixtime();
-  maintenanceRequise = false;
-  preferences.putULong("lastMaint", dernierNettoyageUnix);
-  preferences.putBool("maintReq", maintenanceRequise);
-  if (!forcePhysical) {
-    passwordIndex = (passwordIndex + 1) % nbMotsDePasse;
-    preferences.putInt("pwdIndex", passwordIndex);
-  }
-  Serial.println("Compteur maintenance remis a zero.");
-}
 
 void modeAUTO(DateTime now) {
-  if (maintenanceRequise) {
-    setRelayState(RELAY_OFF);
-    return;
-  }
 
   if (incoherenceCapteurs) {
     setRelayState(RELAY_OFF);
-    if (cycleHoraireEnCours) {
-      cycleHoraireEnCours = false;
-      timerActif = false;
-    }
     finitionRemplissageActive = false;
     return;
   }
@@ -163,10 +134,6 @@ void modeAUTO(DateTime now) {
     } else {
       if (millis() - debutFinitionTime >= DUREE_FINITION) {
         setRelayState(RELAY_OFF);
-        if (cycleHoraireEnCours) {
-          cycleHoraireEnCours = false;
-          timerActif = false;
-        }
       } else {
         setRelayState(RELAY_ON);
       }
@@ -174,23 +141,6 @@ void modeAUTO(DateTime now) {
     return;
   } else {
     finitionRemplissageActive = false;
-  }
-
-  if (timerActif) {
-    if (!cycleHoraireEnCours && now.hour() == declenchementHeure && now.minute() == declenchementMinute) {
-      setRelayState(RELAY_ON);
-      cycleHoraireEnCours = true;
-      tempsDebutCycle = millis();
-    }
-    if (cycleHoraireEnCours) {
-      unsigned long dureeEnMillisecondes = declenchementDuree * 60000UL;
-      if (millis() - tempsDebutCycle >= dureeEnMillisecondes) {
-        setRelayState(RELAY_OFF);
-        cycleHoraireEnCours = false;
-        timerActif = false;
-      }
-      return;
-    }
   }
 
   if (etatCapteurBas == HIGH) {
@@ -203,11 +153,6 @@ void modeAUTO(DateTime now) {
 }
 
 void modeMANU() {
-  if (maintenanceRequise) {
-    setRelayState(RELAY_OFF);
-    pompeManuelleActive = false;
-    return;
-  }
 
   if (bpArret.read() == LOW) {
     setRelayState(RELAY_OFF);
@@ -221,23 +166,12 @@ void modeMANU() {
   }
 
   if (etatCapteurHaut == LOW) {
-    if (pompeManuelleActive || digitalRead(relayPin) == RELAY_ON) {
-      if (!finitionRemplissageActive) {
-        finitionRemplissageActive = true;
-        debutFinitionTime = millis();
-      }
-      if (millis() - debutFinitionTime >= DUREE_FINITION) {
-        setRelayState(RELAY_OFF);
-        pompeManuelleActive = false;
-        return;
-      } else {
-        setRelayState(RELAY_ON);
-        return;
-      }
-    } else {
-      setRelayState(RELAY_OFF);
-      return;
-    }
+    // Sécurité : en mode MANUEL, si la cuve est pleine, on coupe immédiatement la pompe,
+    // sans appliquer le délai de "finition de remplissage" (pour éviter tout débordement).
+    setRelayState(RELAY_OFF);
+    pompeManuelleActive = false;
+    finitionRemplissageActive = false;
+    return;
   } else {
     finitionRemplissageActive = false;
   }
@@ -258,7 +192,6 @@ void gererLogiquePompe(DateTime now) {
   if (arretUrgenceActif || defautSecurite) {
     setRelayState(RELAY_OFF);
     pompeManuelleActive = false;
-    cycleHoraireEnCours = false;
     finitionRemplissageActive = false;
     return; // On bloque l'exécution des autres modes
   }
@@ -268,19 +201,15 @@ void gererLogiquePompe(DateTime now) {
     if (millis() - tempsMarchePompe > DUREE_REMPLISSAGE_MAX) {
       defautSecurite = true; // Latch le défaut
       Serial.println("DEFAUT SECURITE: Timeout de remplissage MAX atteint ! Pompe coupee.");
+      FirebaseManager::getInstance().addLog("Sécurité", "Timeout de remplissage dépassé - Arrêt forcé", "crit", getTimestampStr());
       setRelayState(RELAY_OFF);
       pompeManuelleActive = false;
-      cycleHoraireEnCours = false;
       finitionRemplissageActive = false;
       return;
     }
   }
 
-  // 3. Basculement si maintenance requise
-  if (maintenanceRequise) {
-    Mode = 2;
-    setRelayState(RELAY_OFF);
-  }
+
 
   // 4. Exécution du mode actif
   switch (Mode) {

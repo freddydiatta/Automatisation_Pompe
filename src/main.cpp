@@ -10,21 +10,24 @@
 #include <esp_task_wdt.h>
 
 // Network & Remote
-#include "WifiConnectionManager.h"
 #include "FirebaseManager.h"
+#include "WifiConnectionManager.h"
 
 extern bool defautSecurite;
 
 Preferences preferences;
 RTC_DS3231 rtc;
 
-const char *motDePasseList[] = {"maman", "papa",   "oiseau",
-                                "fleur", "soleil", "riviere"};
-const int nbMotsDePasse = 6;
-int passwordIndex = 0;
+
 bool physicalResetJustHappened = false;
 
 extern TwoWire I2C_BUS_1;
+
+String getTimestamp(DateTime now) {
+  char buf[20];
+  snprintf(buf, sizeof(buf), "%02d/%02d %02d:%02d", now.day(), now.month(), now.hour(), now.minute());
+  return String(buf);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -33,12 +36,7 @@ void setup() {
 
   preferences.begin("pompe_config", false);
   currentTheme = preferences.getInt("theme", 0);
-  declenchementDuree = preferences.getInt("duree", 30);
-  dernierNettoyageUnix = preferences.getULong("lastMaint", 0);
-  maintenanceRequise = preferences.getBool("maintReq", false);
-  passwordIndex = preferences.getInt("pwdIndex", 0);
-  if (passwordIndex < 0 || passwordIndex >= nbMotsDePasse)
-    passwordIndex = 0;
+
   if (currentTheme > 3)
     currentTheme = 0;
 
@@ -50,10 +48,25 @@ void setup() {
 
   if (!rtc.begin(&I2C_BUS_1))
     Serial.println("ERREUR RTC");
-
-  if (dernierNettoyageUnix == 0 && rtc.now().year() > 2020) {
-    resetMaintenanceCounter(rtc.now(), false);
-    Serial.println("Initialisation du compteur de maintenance.");
+  else {
+    // Synchronisation automatique de l'heure via Internet (NTP) pour le Sénégal (UTC+0)
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    Serial.print("Attente de l'heure NTP...");
+    time_t nowSecs = time(nullptr);
+    int retry = 0;
+    while (nowSecs < 100000 && retry < 10) { // attend max 5 sec
+      delay(500);
+      Serial.print(".");
+      nowSecs = time(nullptr);
+      retry++;
+    }
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+      Serial.println("\nHeure RTC mise à jour via Internet !");
+    } else {
+      Serial.println("\nEchec NTP, on conserve l'heure du module RTC.");
+    }
   }
 
   initLedStrip();
@@ -64,16 +77,10 @@ void setup() {
   pinMode(Led_MANU, OUTPUT);
   pinMode(Led_MAINT, OUTPUT);
 
-  if (maintenanceRequise) {
-    Mode = 2;
-  } else {
-    Mode = 2; // Default to MAINTENANCE Mode (was AUTO)
-  }
+  Mode = 0; // Default to AUTO Mode
 
   arretUrgenceActif = false;
   physicalResetJustHappened = false;
-  cycleHoraireEnCours = false;
-  tempsDebutCycle = 0;
   finitionRemplissageActive = false;
 
   // Initialisation du Watchdog (30 secondes)
@@ -84,6 +91,8 @@ void setup() {
   };
   esp_task_wdt_init(&twdt_config);
   esp_task_wdt_add(NULL);
+
+  FirebaseManager::getInstance().addLog("Système", "Démarrage du boîtier de contrôle ESP32", "info", getTimestamp(rtc.now()));
 }
 
 void loop() {
@@ -96,7 +105,7 @@ void loop() {
   }
 
   updateButtons();
-  verifierMaintenance(now);
+
   verifierCoherenceCapteurs();
 
   // Gestion Arret urgence reset (Appui long BP4)
@@ -119,32 +128,20 @@ void loop() {
     }
   }
 
-  // Gestion Combo maintenance secrete
-  if (maintenanceRequise && bpMaint.read() == LOW && bpArret.read() == LOW) {
-    if (comboStartTime == 0) {
-      comboStartTime = millis();
-      Serial.println("Debut combo secrete...");
-    } else if (millis() - comboStartTime > 5000) {
-      resetMaintenanceCounter(now, true);
-      comboStartTime = 0;
-    }
-  } else {
-    comboStartTime = 0;
-  }
 
-  // Changement de Mode si pas en maintenance bloquee
-  if (!maintenanceRequise || Mode == 2) {
     if (bpAuto.fell()) {
       Mode = 0;
+      FirebaseManager::getInstance().addLog("Mode", "Passage en mode Automatique", "info", getTimestamp(now));
     }
     if (bpManu.fell()) {
       Mode = 1;
+      FirebaseManager::getInstance().addLog("Mode", "Passage en mode Manuel", "info", getTimestamp(now));
     }
     if (bpMaint.fell()) {
       Mode = 2;
       defautSecurite = false; // Acquittement du défaut de sécurité
+      FirebaseManager::getInstance().addLog("Mode", "Passage en mode Entretien", "info", getTimestamp(now));
     }
-  }
 
   physicalResetJustHappened = false;
 
@@ -157,5 +154,6 @@ void loop() {
   // Envoi de la telemetrie Firebase
   FirebaseManager::getInstance().update();
   FirebaseManager::getInstance().setMode(Mode);
-  // (Note: setRelayState et setWaterLevels peuvent etre appeles a l'interieur de gererLogiquePompe pour eviter d'envoyer a chaque boucle si inchangé)
+  // (Note: setRelayState et setWaterLevels peuvent etre appeles a l'interieur
+  // de gererLogiquePompe pour eviter d'envoyer a chaque boucle si inchangé)
 }
