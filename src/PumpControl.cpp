@@ -43,9 +43,6 @@ const unsigned long DUREE_FINITION = 60000;
 
 
 
-unsigned long lastMaintenanceCheckTime = 0;
-extern bool physicalResetJustHappened;
-
 bool pompeManuelleActive = false;
 
 void setRelayState(int state) {
@@ -188,8 +185,8 @@ void modeMAINT() {
 }
 
 void gererLogiquePompe(DateTime now) {
-  // 1. Gestion des arrêts d'urgence et défauts sécurités prioritaires
-  if (arretUrgenceActif || defautSecurite) {
+  // 1. Gestion du defaut de securite prioritaire
+  if (defautSecurite) {
     setRelayState(RELAY_OFF);
     pompeManuelleActive = false;
     finitionRemplissageActive = false;

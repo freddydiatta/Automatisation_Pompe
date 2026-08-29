@@ -103,12 +103,6 @@ void initLedStrip() {
 }
 
 void gererLedPhysiques() {
-  if (arretUrgenceActif) {
-    digitalWrite(Led_AUTO, LOW);
-    digitalWrite(Led_MANU, LOW);
-    digitalWrite(Led_MAINT, LOW);
-    return;
-  }
   digitalWrite(Led_AUTO, LOW);
   digitalWrite(Led_MANU, LOW);
   digitalWrite(Led_MAINT, LOW);
@@ -127,12 +121,7 @@ void gererLedPhysiques() {
 
 void gererBandeLed() {
   uint32_t couleur = strip.Color(0, 0, 0);
-  if (arretUrgenceActif) {
-    if (blinkState)
-      couleur = strip.Color(255, 0, 0);
-    else
-      couleur = strip.Color(0, 0, 0);
-  } else if (incoherenceCapteurs) {
+  if (incoherenceCapteurs) {
     couleur = strip.Color(255, 0, 0);
   } else if (etatCapteurHaut == LOW) {
     couleur = strip.Color(0, 255, 0);
@@ -177,16 +166,6 @@ void afficherEtatPrimaire(DateTime now) {
     display1.display();
     return;
   }
-  if (arretUrgenceActif) {
-    display1.setTextSize(2);
-    display1.setCursor(10, 5);
-    display1.print("!! ARRET !!");
-    display1.setCursor(10, 25);
-    display1.print(" URGENCE ");
-    display1.display();
-    return;
-  }
-
   if (Mode == 2) {
     display1.setTextSize(2);
     display1.setCursor((SCREEN_WIDTH - (9 * 12)) / 2, 10);
@@ -480,17 +459,12 @@ void updateDisplays(DateTime now) {
   if (millis() - lastScreenUpdateTime >= screenUpdateInterval) {
     lastScreenUpdateTime = millis();
     afficherEtatPrimaire(now);
-    if (!arretUrgenceActif) {
-      if (Mode == 2)
-        drawMenu(now);
-      else {
-        menuPage = 0;
-        menuSelection = 0;
-        drawAnimationSurfer(now);
-        display2.display();
-      }
-    } else {
-      display2.clearDisplay();
+    if (Mode == 2)
+      drawMenu(now);
+    else {
+      menuPage = 0;
+      menuSelection = 0;
+      drawAnimationSurfer(now);
       display2.display();
     }
   }

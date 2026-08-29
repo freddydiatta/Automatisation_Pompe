@@ -64,6 +64,11 @@ const controlHint = document.getElementById('control-hint');
 
 const btnModeMaint = document.getElementById('btn-mode-maint');
 
+// DOM OTA
+const otaUrlInput = document.getElementById('ota-url');
+const btnOta = document.getElementById('btn-ota');
+const otaHint = document.getElementById('ota-hint');
+
 // Local State
 let currentMode = "MANUAL";
 let currentState = "OFF";
@@ -281,6 +286,26 @@ function initDashboardListeners() {
         if (currentMode !== "AUTO" && currentMode !== "MAINTENANCE") {
             set(ref(database, 'pump/command_state'), "OFF");
         }
+    });
+
+    // OTA
+    btnOta.addEventListener('click', () => {
+        const url = otaUrlInput.value.trim();
+        if (!url) {
+            otaHint.innerText = "Merci de renseigner une URL de firmware (.bin).";
+            return;
+        }
+        if (!confirm("Confirmer la mise à jour du firmware depuis :\n" + url + "\n\nLa pompe va s'arrêter et l'appareil va redémarrer.")) {
+            return;
+        }
+        set(ref(database, 'pump/ota_url'), url)
+            .then(() => {
+                otaHint.innerText = "URL envoyée à l'appareil. La mise à jour démarre au prochain cycle (~1s).";
+                otaUrlInput.value = "";
+            })
+            .catch((error) => {
+                otaHint.innerText = "Erreur lors de l'envoi : " + error.message;
+            });
     });
 
 

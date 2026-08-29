@@ -25,14 +25,3 @@
 // --- LOGIQUE ---
 #define RELAY_ON LOW
 #define RELAY_OFF HIGH
-
-// ==============================================================================
-// --- CONSTANTES MAINTENANCE V14.2 ---
-// ==============================================================================
-// 60 jours en secondes : 60 * 24 * 3600 = 5184000
-#define MAINTENANCE_INTERVAL_SEC 5184000UL
-// ==============================================================================
-
-// --- LISTE DES MOTS DE PASSE ROTATIFS ---
-extern const char *motDePasseList[];
-extern const int nbMotsDePasse;

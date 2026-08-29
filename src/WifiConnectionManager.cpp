@@ -8,14 +8,16 @@ void WifiConnectionManager::begin() {
     wifiManager.setDebugOutput(false);
 
     Serial.println("Initialisation du WiFiManager...");
-    
-    // Auto-connexion rapide spécifique au simulateur Wokwi
+
+#ifdef WOKWI_SIMULATION
+    // Auto-connexion rapide specifique au simulateur Wokwi (absente du firmware de production)
     WiFi.begin("Wokwi-GUEST", "", 6);
     int retries = 0;
     while (WiFi.status() != WL_CONNECTED && retries < 15) {
         delay(100);
         retries++;
     }
+#endif
 
     // AutoConnect tries to connect to the saved Wi-Fi, if it fails, it opens an AP
     // AP name will be "POMPE_CONFIG"

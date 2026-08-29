@@ -12,6 +12,7 @@ extern bool incoherenceCapteurs;
 
 extern bool finitionRemplissageActive;
 
+void setRelayState(int state);
 void initPump();
 void verifierCoherenceCapteurs();
 void modeAUTO(DateTime now);

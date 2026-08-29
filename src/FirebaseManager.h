@@ -14,9 +14,6 @@ public:
 
     void begin();
     void update();
-    void setRelayState(bool state);
-    void setWaterLevels(bool low, bool high);
-    void setMode(int mode);
     void addLog(String category, String message, String severity, String timestamp);
 
 private:

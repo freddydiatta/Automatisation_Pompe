@@ -148,6 +148,16 @@
                     </div>
                     <p class="hint" id="control-hint">Passez en mode Manuel pour commander la pompe directement.</p>
                 </section>
+
+                <!-- OTA -->
+                <section class="card">
+                    <h3>Mise à jour du firmware (OTA)</h3>
+                    <div class="ota-form">
+                        <input type="text" id="ota-url" placeholder="https://.../firmware.bin">
+                        <button type="button" class="btn btn-primary" id="btn-ota">Lancer la mise à jour</button>
+                    </div>
+                    <p class="hint" id="ota-hint">La pompe sera coupée pendant le téléchargement et l'appareil redémarrera automatiquement une fois la mise à jour terminée.</p>
+                </section>
             </div>
         </main>
 
@@ -177,6 +187,6 @@
             document.getElementById('global-error').innerText = message + " at " + lineno + ":" + colno;
         };
     </script>
-    <script type="module" src="app.js?v=4"></script>
+    <script type="module" src="app.js?v=5"></script>
 </body>
 </html>

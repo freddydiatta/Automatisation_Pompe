@@ -1,37 +1,47 @@
 {
   "rules": {
-    "pompe": {
-      // Seuls les utilisateurs connectés (l'ESP32 et vous via l'application) peuvent lire ou écrire
+    "pump": {
+      // Seuls les utilisateurs connectés (l'ESP32 en anonyme et vous via l'application) peuvent lire ou écrire
       ".read": "auth != null",
       ".write": "auth != null",
-      
+
       // Validation stricte des données pour éviter les erreurs ou piratages
-      "etat": { 
-        ".validate": "newData.isBoolean()" 
+      "relay_state": {
+        ".validate": "newData.isString() && (newData.val() == 'ON' || newData.val() == 'OFF')"
       },
-      "mode": { 
-        ".validate": "newData.val() == 'AUTO' || newData.val() == 'MANU' || newData.val() == 'MAINT'" 
+      "mode": {
+        ".validate": "newData.isString() && (newData.val() == 'AUTO' || newData.val() == 'MANUAL' || newData.val() == 'MAINTENANCE')"
       },
-      "courant": { 
-        ".validate": "newData.isNumber()" 
+      "set_mode": {
+        ".validate": "newData.isString() && (newData.val() == 'AUTO' || newData.val() == 'MANUAL' || newData.val() == 'MAINTENANCE' || newData.val() == 'IDLE')"
       },
-      "tension": { 
-        ".validate": "newData.isNumber()" 
+      "command_state": {
+        ".validate": "newData.isString() && (newData.val() == 'ON' || newData.val() == 'OFF' || newData.val() == 'IDLE')"
       },
-      "frequence": { 
-        ".validate": "newData.isNumber()" 
+      "level_high": {
+        ".validate": "newData.isBoolean()"
       },
-      "puissance": { 
-        ".validate": "newData.isNumber()" 
+      "level_low": {
+        ".validate": "newData.isBoolean()"
       },
-      "energie": { 
-        ".validate": "newData.isNumber()" 
+      "last_seen": {
+        ".validate": "newData.isNumber()"
       },
-      "defaut_tension": { 
-        ".validate": "newData.isBoolean()" 
+      "ota_url": {
+        ".validate": "newData.isString()"
       },
-      "last_update": {
-        ".validate": "newData.isNumber() || newData.isString()"
+      "fault": {
+        ".validate": "newData.isString()"
+      },
+      "logs": {
+        ".indexOn": ["ts"],
+        "$logId": {
+          ".validate": "newData.hasChildren(['category', 'message', 'sev', 'ts'])",
+          "category": { ".validate": "newData.isString()" },
+          "message": { ".validate": "newData.isString()" },
+          "sev": { ".validate": "newData.isString()" },
+          "ts": { ".validate": "newData.isString()" }
+        }
       }
     }
   }

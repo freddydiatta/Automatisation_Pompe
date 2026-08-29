@@ -18,9 +18,6 @@ extern bool defautSecurite;
 Preferences preferences;
 RTC_DS3231 rtc;
 
-
-bool physicalResetJustHappened = false;
-
 extern TwoWire I2C_BUS_1;
 
 String getTimestamp(DateTime now) {
@@ -79,17 +76,13 @@ void setup() {
 
   Mode = 0; // Default to AUTO Mode
 
-  arretUrgenceActif = false;
-  physicalResetJustHappened = false;
   finitionRemplissageActive = false;
 
   // Initialisation du Watchdog (30 secondes)
-  esp_task_wdt_config_t twdt_config = {
-      .timeout_ms = 30000,
-      .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
-      .trigger_panic = true,
-  };
-  esp_task_wdt_init(&twdt_config);
+  // Note: API v2.x du core Arduino ESP32 (secondes, pas de config struct)
+  // car platformio.ini force espressif32 @ ^6.5.0 pour compatibilite avec
+  // la librairie Firebase ESP32 Client.
+  esp_task_wdt_init(30, true);
   esp_task_wdt_add(NULL);
 
   FirebaseManager::getInstance().addLog("Système", "Démarrage du boîtier de contrôle ESP32", "info", getTimestamp(rtc.now()));
@@ -108,42 +101,19 @@ void loop() {
 
   verifierCoherenceCapteurs();
 
-  // Gestion Arret urgence reset (Appui long BP4)
-  if (arretUrgenceActif) {
-    if (bpMarche.read() == LOW) {
-      if (bp4PressStartTime == 0)
-        bp4PressStartTime = millis();
-      else if (millis() - bp4PressStartTime > 1000 && !bp4LongPressHandled) {
-        arretUrgenceActif = false;
-        physicalResetJustHappened = true;
-        bp4LongPressHandled = true;
-        display1.clearDisplay();
-        display1.setCursor(0, 0);
-        display1.print("RESET URG OK");
-        display1.display();
-      }
-    } else {
-      bp4PressStartTime = 0;
-      bp4LongPressHandled = false;
-    }
+  if (bpAuto.fell()) {
+    Mode = 0;
+    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Automatique", "info", getTimestamp(now));
   }
-
-
-    if (bpAuto.fell()) {
-      Mode = 0;
-      FirebaseManager::getInstance().addLog("Mode", "Passage en mode Automatique", "info", getTimestamp(now));
-    }
-    if (bpManu.fell()) {
-      Mode = 1;
-      FirebaseManager::getInstance().addLog("Mode", "Passage en mode Manuel", "info", getTimestamp(now));
-    }
-    if (bpMaint.fell()) {
-      Mode = 2;
-      defautSecurite = false; // Acquittement du défaut de sécurité
-      FirebaseManager::getInstance().addLog("Mode", "Passage en mode Entretien", "info", getTimestamp(now));
-    }
-
-  physicalResetJustHappened = false;
+  if (bpManu.fell()) {
+    Mode = 1;
+    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Manuel", "info", getTimestamp(now));
+  }
+  if (bpMaint.fell()) {
+    Mode = 2;
+    defautSecurite = false; // Acquittement du défaut de sécurité
+    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Entretien", "info", getTimestamp(now));
+  }
 
   gererLedPhysiques();
   gererLogiquePompe(now);
@@ -151,9 +121,6 @@ void loop() {
   gererMenuSecondaire(now);
   updateDisplays(now);
 
-  // Envoi de la telemetrie Firebase
+  // Envoi de la telemetrie Firebase (throttle a 1x/seconde en interne)
   FirebaseManager::getInstance().update();
-  FirebaseManager::getInstance().setMode(Mode);
-  // (Note: setRelayState et setWaterLevels peuvent etre appeles a l'interieur
-  // de gererLogiquePompe pour eviter d'envoyer a chaque boucle si inchangé)
 }

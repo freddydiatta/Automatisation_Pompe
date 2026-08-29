@@ -21,11 +21,24 @@ void FirebaseManager::begin() {
     // Enable WiFi reconnection
     Firebase.reconnectWiFi(true);
 
-    // Initialisation
+    // Authentification par email/mot de passe (requise par la regle RTDB "auth != null")
+    auth.user.email = USER_EMAIL;
+    auth.user.password = USER_PASSWORD;
     Firebase.begin(&config, &auth);
 
     fbdo.setBSSLBufferSize(4096, 1024);
     fbdo.setResponseSize(4096);
+
+    Serial.print("Authentification Firebase en cours");
+    unsigned long authStart = millis();
+    while (!Firebase.ready() && millis() - authStart < 10000) {
+        Serial.print(".");
+        delay(200);
+    }
+    if (Firebase.ready())
+        Serial.println("\nFirebase pret. UID: " + String(auth.token.uid.c_str()));
+    else
+        Serial.println("\nFirebase non pret apres 10s (nouvelle tentative en tache de fond).");
 }
 
 void FirebaseManager::update() {
@@ -45,14 +58,15 @@ void FirebaseManager::update() {
             }
         }
 
+        // Telemetrie groupee en une seule requete (au lieu de 4 appels separes)
         String relayStr = (digitalRead(relayPin) == RELAY_ON) ? "ON" : "OFF";
-        Firebase.setString(fbdo, "/pump/relay_state", relayStr);
-
-        Firebase.setBool(fbdo, "/pump/level_high", !digitalRead(Capteur_Niveau_Haut));
-        Firebase.setBool(fbdo, "/pump/level_low", !digitalRead(Capteur_Niveau_Bas));
-
         String modeStr = (Mode == 0) ? "AUTO" : ((Mode == 1) ? "MANUAL" : "MAINTENANCE");
-        Firebase.setString(fbdo, "/pump/mode", modeStr);
+        FirebaseJson telemetry;
+        telemetry.set("relay_state", relayStr);
+        telemetry.set("level_high", !digitalRead(Capteur_Niveau_Haut));
+        telemetry.set("level_low", !digitalRead(Capteur_Niveau_Bas));
+        telemetry.set("mode", modeStr);
+        Firebase.updateNode(fbdo, "/pump", telemetry);
 
         // Traitement de la commande depuis l'interface web
         if (Firebase.getString(fbdo, "/pump/command_state")) {
@@ -86,26 +100,6 @@ void FirebaseManager::update() {
             Firebase.setInt(fbdo, "/pump/last_seen", time(nullptr));
             lastSeenTime = millis();
         }
-    }
-}
-
-void FirebaseManager::setRelayState(bool state) {
-    if (Firebase.ready()) {
-        Firebase.setBool(fbdo, "/pump/relay_state", state);
-    }
-}
-
-void FirebaseManager::setWaterLevels(bool low, bool high) {
-    if (Firebase.ready()) {
-        Firebase.setBool(fbdo, "/pump/level_low", low);
-        Firebase.setBool(fbdo, "/pump/level_high", high);
-    }
-}
-
-void FirebaseManager::setMode(int mode) {
-    if (Firebase.ready()) {
-        String modeStr = (mode == 0) ? "AUTO" : ((mode == 1) ? "MANUAL" : "MAINTENANCE");
-        Firebase.setString(fbdo, "/pump/mode", modeStr);
     }
 }
 
