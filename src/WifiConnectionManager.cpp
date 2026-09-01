@@ -22,11 +22,3 @@ void WifiConnectionManager::begin() {
     Serial.println(WiFi.localIP());
 }
 
-bool WifiConnectionManager::isConnected() {
-    return WiFi.status() == WL_CONNECTED;
-}
-
-void WifiConnectionManager::update() {
-    // If connection is lost, WiFiManager handles auto-reconnect internally,
-    // but we can add specific logic here if needed.
-}

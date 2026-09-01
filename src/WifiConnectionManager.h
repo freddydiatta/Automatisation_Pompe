@@ -12,8 +12,6 @@ public:
     }
 
     void begin();
-    bool isConnected();
-    void update();
 
 private:
     WifiConnectionManager() {}
