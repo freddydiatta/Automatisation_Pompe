@@ -1,7 +1,7 @@
 {
   "rules": {
     "pump": {
-      // Seuls les utilisateurs connectés (l'ESP32 en anonyme et vous via l'application) peuvent lire ou écrire
+      // Seuls les utilisateurs connectés (l'ESP32 via son compte dédié et vous via l'application) peuvent lire ou écrire
       ".read": "auth != null",
       ".write": "auth != null",
 
