@@ -69,37 +69,43 @@ void FirebaseManager::update() {
         Firebase.updateNode(fbdo, "/pump", telemetry);
 
         // Traitement de la commande depuis l'interface web
+        // (toujours consommee/remise a IDLE, meme si elle ne s'applique pas au mode actuel,
+        // pour ne jamais laisser une commande perimee se declencher plus tard sans raison)
         if (Firebase.getString(fbdo, "/pump/command_state")) {
             String cmd = fbdo.stringData();
-            if (cmd == "ON" && Mode == 1) { // Seulement en MANU
-                setRelayState(RELAY_ON);
-                Firebase.setString(fbdo, "/pump/command_state", "IDLE"); 
-            } else if (cmd == "OFF" && Mode == 1) {
-                setRelayState(RELAY_OFF);
-                Firebase.setString(fbdo, "/pump/command_state", "IDLE"); 
+            if (cmd != "IDLE") {
+                if (Mode == 1) { // Seulement en MANU
+                    if (cmd == "ON") setRelayState(RELAY_ON);
+                    else if (cmd == "OFF") setRelayState(RELAY_OFF);
+                }
+                Firebase.setString(fbdo, "/pump/command_state", "IDLE");
             }
         }
 
-        // Changement de mode depuis l'interface web
+        // Changement de mode depuis l'interface web (meme logique : toujours consomme)
         if (Firebase.getString(fbdo, "/pump/set_mode")) {
             String newMode = fbdo.stringData();
-            if (newMode == "AUTO" && Mode != 0) {
-                Mode = 0;
-                Firebase.setString(fbdo, "/pump/set_mode", "IDLE");
-            } else if (newMode == "MANUAL" && Mode != 1) {
-                Mode = 1;
-                Firebase.setString(fbdo, "/pump/set_mode", "IDLE");
-            } else if (newMode == "MAINTENANCE" && Mode != 2) {
-                Mode = 2;
+            if (newMode != "IDLE") {
+                if (newMode == "AUTO") Mode = 0;
+                else if (newMode == "MANUAL") Mode = 1;
+                else if (newMode == "MAINTENANCE") Mode = 2;
                 Firebase.setString(fbdo, "/pump/set_mode", "IDLE");
             }
         }
-        
+
+        // Horodatage de presence : utilise l'heure du serveur Firebase (et non l'horloge
+        // locale de l'ESP32, qui n'est fiable que si la synchronisation NTP a reussi au demarrage)
         static unsigned long lastSeenTime = 0;
         if (millis() - lastSeenTime > 5000) {
-            Firebase.setInt(fbdo, "/pump/last_seen", time(nullptr));
+            Firebase.setTimestamp(fbdo, "/pump/last_seen");
             lastSeenTime = millis();
         }
+    }
+}
+
+void FirebaseManager::setFault(String message) {
+    if (Firebase.ready()) {
+        Firebase.setString(fbdo, "/pump/fault", message);
     }
 }
 

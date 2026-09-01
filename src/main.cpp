@@ -22,7 +22,8 @@ extern TwoWire I2C_BUS_1;
 
 String getTimestamp(DateTime now) {
   char buf[20];
-  snprintf(buf, sizeof(buf), "%02d/%02d %02d:%02d", now.day(), now.month(), now.hour(), now.minute());
+  snprintf(buf, sizeof(buf), "%02d/%02d %02d:%02d", now.day(), now.month(),
+           now.hour(), now.minute());
   return String(buf);
 }
 
@@ -46,7 +47,8 @@ void setup() {
   if (!rtc.begin(&I2C_BUS_1))
     Serial.println("ERREUR RTC");
   else {
-    // Synchronisation automatique de l'heure via Internet (NTP) pour le Sénégal (UTC+0)
+    // Synchronisation automatique de l'heure via Internet (NTP) pour le Sénégal
+    // (UTC+0)
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
     Serial.print("Attente de l'heure NTP...");
     time_t nowSecs = time(nullptr);
@@ -59,7 +61,9 @@ void setup() {
     }
     struct tm timeinfo;
     if (getLocalTime(&timeinfo)) {
-      rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+      rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1,
+                          timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min,
+                          timeinfo.tm_sec));
       Serial.println("\nHeure RTC mise à jour via Internet !");
     } else {
       Serial.println("\nEchec NTP, on conserve l'heure du module RTC.");
@@ -85,7 +89,9 @@ void setup() {
   esp_task_wdt_init(30, true);
   esp_task_wdt_add(NULL);
 
-  FirebaseManager::getInstance().addLog("Système", "Démarrage du boîtier de contrôle ESP32", "info", getTimestamp(rtc.now()));
+  FirebaseManager::getInstance().addLog(
+      "Système", "Démarrage du boîtier de contrôle ESP32", "info",
+      getTimestamp(rtc.now()));
 }
 
 void loop() {
@@ -103,16 +109,20 @@ void loop() {
 
   if (bpAuto.fell()) {
     Mode = 0;
-    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Automatique", "info", getTimestamp(now));
+    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Automatique",
+                                          "info", getTimestamp(now));
   }
   if (bpManu.fell()) {
     Mode = 1;
-    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Manuel", "info", getTimestamp(now));
+    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Manuel",
+                                          "info", getTimestamp(now));
   }
   if (bpMaint.fell()) {
     Mode = 2;
     defautSecurite = false; // Acquittement du défaut de sécurité
-    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Entretien", "info", getTimestamp(now));
+    FirebaseManager::getInstance().setFault("NONE");
+    FirebaseManager::getInstance().addLog("Mode", "Passage en mode Entretien",
+                                          "info", getTimestamp(now));
   }
 
   gererLedPhysiques();

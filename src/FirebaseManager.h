@@ -15,6 +15,7 @@ public:
     void begin();
     void update();
     void addLog(String category, String message, String severity, String timestamp);
+    void setFault(String message);
 
 private:
     FirebaseManager() {}

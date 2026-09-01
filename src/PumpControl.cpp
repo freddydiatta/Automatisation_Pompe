@@ -199,6 +199,7 @@ void gererLogiquePompe(DateTime now) {
       defautSecurite = true; // Latch le défaut
       Serial.println("DEFAUT SECURITE: Timeout de remplissage MAX atteint ! Pompe coupee.");
       FirebaseManager::getInstance().addLog("Sécurité", "Timeout de remplissage dépassé - Arrêt forcé", "crit", getTimestampStr());
+      FirebaseManager::getInstance().setFault("Timeout de remplissage dépassé");
       setRelayState(RELAY_OFF);
       pompeManuelleActive = false;
       finitionRemplissageActive = false;

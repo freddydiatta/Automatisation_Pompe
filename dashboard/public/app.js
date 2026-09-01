@@ -142,9 +142,10 @@ function initDashboardListeners() {
     listenersAttached = true;
 
     // Liveness / Présence de l'ESP32
+    // last_seen est écrit via l'horodatage serveur Firebase (millisecondes), pas l'horloge locale de l'ESP32
     setInterval(() => {
-        const now = Math.floor(Date.now() / 1000); // en secondes
-        if (lastSeenTs > 0 && (now - lastSeenTs) <= 20) {
+        const now = Date.now();
+        if (lastSeenTs > 0 && (now - lastSeenTs) <= 20000) {
             // L'ESP32 a pingé il y a moins de 20 secondes
             connBadge.classList.remove('offline');
             connText.innerText = 'En ligne';
