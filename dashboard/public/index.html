@@ -76,7 +76,7 @@
         <!-- Main Layout -->
         <main class="dashboard-grid">
             <!-- Left: Citerne -->
-            <section class="card citerne-card">
+            <section class="card citerne-card" data-live>
                 <div class="card-header">
                     <h3>Citerne principale</h3>
                     <span class="last-update" id="last-update">En direct</span>
@@ -116,7 +116,7 @@
             <div class="right-column">
                 
                 <!-- Pompe Status -->
-                <section class="card pompe-card">
+                <section class="card pompe-card" data-live>
                     <div class="pompe-image-container" id="pump-img-container">
                         <img src="pump.jpg" alt="Pompe Industrielle" class="pompe-image">
                         <div class="pump-glow" id="pump-glow"></div>
@@ -187,6 +187,6 @@
             document.getElementById('global-error').innerText = message + " at " + lineno + ":" + colno;
         };
     </script>
-    <script type="module" src="app.js?v=5"></script>
+    <script type="module" src="app.js?v=6"></script>
 </body>
 </html>

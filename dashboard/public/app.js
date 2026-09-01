@@ -30,6 +30,7 @@ const connBadge = document.getElementById('conn-status');
 const connText = document.getElementById('conn-text');
 const faultBanner = document.getElementById('fault-banner');
 const faultText = document.getElementById('fault-text');
+const lastUpdate = document.getElementById('last-update');
 
 // DOM Citerne
 const waterLevel = document.getElementById('water-level');
@@ -76,6 +77,7 @@ let currentHigh = false;
 let currentLow = false;
 let allLogs = [];
 let currentFilter = "Tous";
+let isOnline = false;
 
 // --- AUTHENTIFICATION ---
 loginBtn.addEventListener('click', () => {
@@ -137,22 +139,56 @@ function updateWaterLevelVisual() {
     }
 }
 
+// Firebase ne conserve que la derniere valeur ecrite pour relay_state/mode/niveaux :
+// rien ne les efface quand l'appareil se deconnecte. On ne se fie donc jamais a ces
+// donnees seules pour dire "en ligne" - le badge de connexion (last_seen) fait foi,
+// et on grise/desactive le reste quand il indique hors ligne.
+function updateControlsState() {
+    btnModeAuto.disabled = !isOnline;
+    btnModeManual.disabled = !isOnline;
+    btnModeMaint.disabled = !isOnline;
+
+    if (!isOnline) {
+        btnStart.disabled = true;
+        btnStop.disabled = true;
+        controlHint.innerText = "Appareil hors ligne — dernières valeurs affichées, aucune commande possible.";
+        return;
+    }
+
+    if (currentMode === "MANUAL") {
+        btnStart.disabled = currentState === "ON";
+        btnStop.disabled = currentState === "OFF";
+        controlHint.innerText = "Commandes manuelles actives.";
+    } else {
+        btnStart.disabled = true;
+        btnStop.disabled = true;
+        controlHint.innerText = currentMode === "MAINTENANCE"
+            ? "La pompe est coupée pendant l'entretien."
+            : "Passez en mode Manuel pour commander la pompe directement.";
+    }
+}
+
+function setOnlineUI(online) {
+    isOnline = online;
+    connBadge.classList.toggle('offline', !online);
+    connText.innerText = online ? 'En ligne' : 'Hors ligne';
+    lastUpdate.innerText = online ? 'En direct' : 'Hors ligne — dernières données';
+    document.querySelectorAll('[data-live]').forEach(el => el.classList.toggle('stale', !online));
+    updateControlsState();
+}
+
 function initDashboardListeners() {
     if(listenersAttached) return;
     listenersAttached = true;
+
+    setOnlineUI(false); // etat initial prudent tant qu'on n'a pas encore recu last_seen
 
     // Liveness / Présence de l'ESP32
     // last_seen est écrit via l'horodatage serveur Firebase (millisecondes), pas l'horloge locale de l'ESP32
     setInterval(() => {
         const now = Date.now();
-        if (lastSeenTs > 0 && (now - lastSeenTs) <= 20000) {
-            // L'ESP32 a pingé il y a moins de 20 secondes
-            connBadge.classList.remove('offline');
-            connText.innerText = 'En ligne';
-        } else {
-            connBadge.classList.add('offline');
-            connText.innerText = 'Hors ligne';
-        }
+        const online = lastSeenTs > 0 && (now - lastSeenTs) <= 20000;
+        if (online !== isOnline) setOnlineUI(online);
     }, 2000);
 
     onValue(ref(database, 'pump/last_seen'), (snapshot) => {
@@ -209,36 +245,20 @@ function initDashboardListeners() {
             btnModeManual.classList.remove('active');
             btnModeMaint.classList.remove('active');
             modeHint.innerText = "La pompe gère automatiquement le niveau selon les capteurs.";
-            
-            // Disable manual controls
-            btnStart.disabled = true;
-            btnStop.disabled = true;
-            controlHint.innerText = "Passez en mode Manuel pour commander la pompe directement.";
-            
         } else if (currentMode === "MANUAL") {
             modeDisplayText.innerText = "Manuel";
             btnModeManual.classList.add('active');
             btnModeAuto.classList.remove('active');
             btnModeMaint.classList.remove('active');
             modeHint.innerText = "Démarrage et arrêt manuels depuis ce tableau de bord.";
-            
-            // Enable manual controls
-            btnStart.disabled = false;
-            btnStop.disabled = false;
-            controlHint.innerText = "Commandes manuelles actives.";
-            
         } else if (currentMode === "MAINTENANCE") {
             modeDisplayText.innerText = "Entretien";
             btnModeMaint.classList.add('active');
             btnModeManual.classList.remove('active');
             btnModeAuto.classList.remove('active');
             modeHint.innerText = "Pompe verrouillée pour nettoyage.";
-            
-            // Disable manual controls
-            btnStart.disabled = true;
-            btnStop.disabled = true;
-            controlHint.innerText = "La pompe est coupée pendant l'entretien.";
         }
+        updateControlsState();
     });
 
     // État Relais
@@ -248,20 +268,17 @@ function initDashboardListeners() {
             stateDisplay.innerText = "En marche";
             stateDisplay.classList.add('running');
             pumpGlow.classList.add('running');
-            btnStart.disabled = true;
             btnStart.classList.add('active-cmd');
             btnStop.classList.remove('active-cmd');
-            if(currentMode === "MANUAL") btnStop.disabled = false;
         } else {
             stateDisplay.innerText = "À l'arrêt";
             stateDisplay.classList.remove('running');
             pumpGlow.classList.remove('running');
-            btnStop.disabled = true;
             btnStop.classList.add('active-cmd');
             btnStart.classList.remove('active-cmd');
-            if(currentMode === "MANUAL") btnStart.disabled = false;
         }
         updateWaterLevelVisual(); // update water animation if filling
+        updateControlsState();
     });
 
     // Actions Boutons

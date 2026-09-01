@@ -360,6 +360,15 @@ header {
     color: var(--text-muted);
 }
 
+/* Donnees perimees : Firebase conserve la derniere valeur connue meme quand
+   l'appareil est deconnecte, donc on grise visuellement pour ne pas la
+   presenter comme un etat live. */
+[data-live].stale {
+    opacity: 0.5;
+    filter: grayscale(0.6);
+    transition: opacity 0.3s, filter 0.3s;
+}
+
 /* Citerne */
 .citerne-content {
     display: flex;
